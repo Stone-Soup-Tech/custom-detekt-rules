@@ -1,0 +1,23 @@
+android-conventions:
+  active: true
+  BlankLineBeforeDocumentedProperty:
+    active: true
+  NoForceUnwrap:
+    active: true
+  ExhaustiveWhen:
+    active: true
+  NoBlankLinesBetweenWhenBranches:
+    active: true
+  BracesRequired:
+    active: true
+  SingleInitBlock:
+    active: true
+  MemberVisibilityOrder:
+    active: true
+  RedundantDefaultArgument:
+    active: true
+  AppOwnedExtension:
+    active: true
+    # Replace with package roots owned by your application, including shared/domain modules.
+    appOwnedPackages:
+      - 'com.example.app'

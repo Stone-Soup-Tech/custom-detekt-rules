@@ -1,0 +1,133 @@
+# Android Detekt conventions
+
+Custom Detekt rules for Kotlin and Android projects, covering documentation, null safety, control flow, initialization, visibility, default arguments, and app-owned extensions.
+
+## Requirements
+
+- Detekt **1.23.8**. Detekt 2.x is not supported.
+- **Java 21** for the Gradle JVM running Detekt. Your Android application's Java target can be configured separately.
+
+## Installation
+
+Add JitPack to your project's `settings.gradle.kts` repositories:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroup("com.github.Stone-Soup-Tech")
+            }
+        }
+    }
+}
+```
+
+Apply Detekt and add the rules in each module you want to check:
+
+```kotlin
+plugins {
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+}
+
+dependencies {
+    detektPlugins("com.github.Stone-Soup-Tech:custom-detekt-rules:TAG_OR_COMMIT")
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(rootProject.files("config/detekt.yml"))
+}
+```
+
+Replace `TAG_OR_COMMIT` with a tag or commit hash from [Stone-Soup-Tech/custom-detekt-rules](https://github.com/Stone-Soup-Tech/custom-detekt-rules). Use the exact tag name or commit hash. `TAG_OR_COMMIT` is a placeholder, not an available release. If Detekt is already applied, add the dependency and configuration to your existing setup.
+
+JitPack builds the selected GitHub revision and makes its artifacts available to Gradle. Pin a tag or commit for reproducible dependency selection. See [JitPack's usage documentation](https://docs.jitpack.io/intro/).
+
+## Configuration
+
+Copy [config/detekt.yml](config/detekt.yml) to your project's `config/detekt.yml`. The sample enables all nine rules in the `android-conventions` ruleset. Merge that section into your existing Detekt configuration if you already have one.
+
+Set `AppOwnedExtension.appOwnedPackages` to the package roots owned by your application, including shared and domain modules:
+
+```yaml
+android-conventions:
+  active: true
+  AppOwnedExtension:
+    active: true
+    appOwnedPackages:
+      - 'com.example.app'
+      - 'com.example.domain'
+```
+
+An empty ownership list disables ownership checks. Set an individual rule's `active` property to `false` to disable it.
+
+## Run checks
+
+Use a variant task with type resolution to run all rules:
+
+```sh
+./gradlew :app:detektDebug
+```
+
+Replace `app` and `Debug` with your module and variant. The plain `detekt` task runs syntax checks but does not supply the type information needed by `ExhaustiveWhen`, `RedundantDefaultArgument`, or `AppOwnedExtension`. See [Detekt's type-resolution setup](https://detekt.dev/docs/1.23.8/gettingstarted/gradle/#using-type-resolution).
+
+## Rules
+
+| Rule | Behavior | Type resolution |
+| --- | --- | --- |
+| `BlankLineBeforeDocumentedProperty` | Requires a blank line before data-class constructor property KDoc after the first property. Supports annotations and multiline declarations. | No |
+| `NoForceUnwrap` | Reports postfix `!!`. Suggests safe `let` or a local value with an Elvis early return. | No |
+| `ExhaustiveWhen` | Requires exhaustive `when` expressions and statements. Compiler-proven exhaustive cases need no `else`. | Yes |
+| `NoBlankLinesBetweenWhenBranches` | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed. | No |
+| `BracesRequired` | Requires braces for `if` and `else`, except single-line conditional assignment values. Allows `else if` chains. | No |
+| `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
+| `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
+| `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
+| `AppOwnedExtension` | Requires a nearby rationale for extension functions and properties on configured app-owned types. | Yes |
+
+Visibility order is shared across properties and functions. Implicit visibility is treated as public. Constructors, init blocks, and nested type declarations do not participate as members in the ordering check.
+
+### Documented constructor properties
+
+```kotlin
+data class User(
+    /** First property needs no leading blank line. */
+    val name: String,
+
+    /** Other properties need a blank line before their KDoc. */
+    @Deprecated("Use userId")
+    val id: String,
+)
+```
+
+An undocumented first property still counts as the first property. Ordinary classes, body properties, and undocumented parameters are excluded. Blank lines inside comments do not count as whitespace before a KDoc.
+
+### Default arguments
+
+```kotlin
+fun refresh(force: Boolean = false) { /* ... */ }
+
+refresh(force = false) // reported: call refresh()
+```
+
+This rule compares compiler constant values, including literals, null, const references, and constant expressions, and also recognizes resolved enum entries. It does not compare arbitrary expressions by spelling: two `Any()` or `loadValue()` calls can create different values or have side effects. Varargs and defaults whose source is unavailable (for example, compiled dependency declarations) are skipped. When removing a positional argument before other arguments, use named arguments for the remaining parameters as needed.
+
+### App-owned extensions
+
+Ownership is explicit through `appOwnedPackages`, matched at package boundaries. For example, `com.example.app` includes `com.example.app.models` but excludes `com.example.application`. The default empty list checks no receivers. Receiver types are resolved, including aliases, generics, and nullable types; external receivers are allowed.
+
+Move stable derived behavior into the receiver type. For a dependency-boundary exception, write an adjacent comment or KDoc with a nonempty `Extension rationale:` marker:
+
+```kotlin
+// Extension rationale: Android formatting belongs in the UI module, outside the domain module.
+fun User.displayName(): String = /* ... */
+```
+
+Static analysis cannot judge whether behavior is stable or whether a boundary justification is convincing. This rule enforces declared ownership and a written justification; review must assess the justification. A detached comment separated by a blank line does not justify an extension.
+
+All rules report findings without automatic corrections. In particular, combining init blocks or moving members can change initialization order. Keep initialization steps in their original execution order and extract complex logic into class-level helpers as appropriate. Detekt's usual `@Suppress("RuleName")` mechanism is available for specific exceptions.
+
