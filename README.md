@@ -49,7 +49,7 @@ JitPack builds the selected GitHub revision and makes its artifacts available to
 
 ## Configuration
 
-Copy [config/detekt.yml](config/detekt.yml) to your project's `config/detekt.yml`. The sample enables all nine rules in the `android-conventions` ruleset. Merge that section into your existing Detekt configuration if you already have one.
+Copy [config/detekt.yml](config/detekt.yml) to your project's `config/detekt.yml`. The sample enables all ten rules in the `android-conventions` ruleset. Merge that section into your existing Detekt configuration if you already have one.
 
 Set `AppOwnedExtension.appOwnedPackages` to the package roots owned by your application, including shared and domain modules:
 
@@ -73,7 +73,7 @@ Use a variant task with type resolution to run all rules:
 ./gradlew :app:detektDebug
 ```
 
-Replace `app` and `Debug` with your module and variant. The plain `detekt` task runs syntax checks but does not supply the type information needed by `ExhaustiveWhen`, `RedundantDefaultArgument`, or `AppOwnedExtension`. See [Detekt's type-resolution setup](https://detekt.dev/docs/1.23.8/gettingstarted/gradle/#using-type-resolution).
+Replace `app` and `Debug` with your module and variant. The plain `detekt` task runs syntax checks but does not supply the type information needed by `ExhaustiveWhen`, `RedundantDefaultArgument`, `NamedArgumentsForLargeCalls`, or `AppOwnedExtension`. See [Detekt's type-resolution setup](https://detekt.dev/docs/1.23.8/gettingstarted/gradle/#using-type-resolution).
 
 ## Rules
 
@@ -87,6 +87,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
 | `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
 | `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
+| `NamedArgumentsForLargeCalls` | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters. | Yes |
 | `AppOwnedExtension` | Requires a nearby rationale for extension functions and properties on configured app-owned types. | Yes |
 
 Visibility order is shared across properties and functions. Implicit visibility is treated as public. Constructors, init blocks, and nested type declarations do not participate as members in the ordering check.
@@ -132,6 +133,22 @@ refresh(force = false) // reported: call refresh()
 ```
 
 This rule compares compiler constant values, including literals, null, const references, and constant expressions, and also recognizes resolved enum entries. It does not compare arbitrary expressions by spelling: two `Any()` or `loadValue()` calls can create different values or have side effects. Varargs and defaults whose source is unavailable (for example, compiled dependency declarations) are skipped. When removing a positional argument before other arguments, use named arguments for the remaining parameters as needed.
+
+### Named arguments
+
+`NamedArgumentsForLargeCalls` checks both the resolved callee's parameter count and the number of distinct parameters explicitly supplied at the call site. When both counts are at least three, use names for arguments inside parentheses:
+
+```kotlin
+fun connect(host: String, port: Int, secure: Boolean = true) { /* ... */ }
+
+connect("example.com", 443) // Allowed: only two parameters supplied.
+connect("example.com", 443, false) // Reported.
+connect(host = "example.com", port = 443, secure = false) // Allowed.
+```
+
+The rule covers functions, methods, extension functions, Kotlin constructors (including `super`/`this` delegation and enum entries), annotation constructors, and custom `invoke` operators. It requires type resolution, so use a variant task such as `detektDebug`.
+
+Omitted defaults do not count. A trailing lambda counts as one supplied parameter but may remain outside parentheses. Multiple vararg elements count as one parameter; expanded elements cannot be named individually and are exempt, while a spread array can be named. Calls without stable parameter names, such as Java methods and function-type invocations, are skipped; parameter-name comments are not required.
 
 ### App-owned extensions
 

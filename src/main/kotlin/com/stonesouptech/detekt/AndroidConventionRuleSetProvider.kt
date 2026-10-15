@@ -16,6 +16,7 @@ class AndroidConventionRuleSetProvider : RuleSetProvider {
         SingleInitBlock(config),
         MemberVisibilityOrder(config),
         RedundantDefaultArgument(config),
+        NamedArgumentsForLargeCalls(config),
         AppOwnedExtension(config),
     ))
 }

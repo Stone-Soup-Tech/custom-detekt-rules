@@ -271,11 +271,11 @@ class StyleRulesTest {
         """).size)
     }
 
-    @Test fun `provider is discoverable and registers nine distinct rules`() {
+    @Test fun `provider is discoverable and registers ten distinct rules`() {
         val provider = ServiceLoader.load(RuleSetProvider::class.java).filterIsInstance<AndroidConventionRuleSetProvider>().single()
         assertEquals("android-conventions", provider.ruleSetId)
         val rules = provider.instance(Config.empty).rules
-        assertEquals(9, rules.size)
-        assertEquals(9, rules.map { it.ruleId }.distinct().size)
+        assertEquals(10, rules.size)
+        assertEquals(10, rules.map { it.ruleId }.distinct().size)
     }
 }

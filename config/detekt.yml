@@ -16,6 +16,8 @@ android-conventions:
     active: true
   RedundantDefaultArgument:
     active: true
+  NamedArgumentsForLargeCalls:
+    active: true
   AppOwnedExtension:
     active: true
     # Replace with package roots owned by your application, including shared/domain modules.
