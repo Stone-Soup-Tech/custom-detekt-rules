@@ -127,47 +127,94 @@ class StyleRulesTest {
         """).size)
     }
 
-    @Test fun `if and else branches require braces`() {
+    @Test fun `multiline if and else branches require braces`() {
         assertEquals(2, BracesRequired(TestConfig()).lint("""
             fun f(x: Boolean) {
-                if (x) println(1) else println(2)
+                if (x)
+                    println(1)
+                else
+                    println(2)
             }
         """).size)
         assertTrue(BracesRequired(TestConfig()).lint("""
             fun f(x: Boolean) {
-                if (x) { println(1) } else if (!x) { println(2) } else { println(3) }
+                if (x) {
+                    println(1)
+                } else if (!x) {
+                    println(2)
+                } else {
+                    println(3)
+                }
             }
         """).isEmpty())
     }
 
-    @Test fun `only single-line assignment values may omit braces`() {
+    @Test fun `single-line conditionals are allowed in any expression context`() {
         assertTrue(BracesRequired(TestConfig()).lint("""
-            fun f(x: Boolean) {
+            fun f(x: Boolean): Int {
+                if (x) println(1)
+                if (x) println(1) else println(2)
                 val a = if (x) 1 else 2
                 var b: Int
                 b = (if (x) 3 else 4)
+                val c =
+                    if (x) 5 else 6
+                return if (x) 7 else 8
             }
         """).isEmpty())
+    }
+
+    @Test fun `single-line conditionals may transfer control`() {
+        assertTrue(BracesRequired(TestConfig()).lint("""
+            fun f(x: Boolean) {
+                if (x) return
+                if (x) throw IllegalStateException()
+                val a = if (x) 1 else return
+                while (x) {
+                    if (x) break
+                    if (!x) continue
+                }
+            }
+            fun callback() {
+                rememberLauncherForActivityResult {
+                    if (it.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+                }
+            }
+        """).isEmpty())
+    }
+
+    @Test fun `multiline conditions and assignments still require braces`() {
         assertEquals(4, BracesRequired(TestConfig()).lint("""
             fun f(x: Boolean): Int {
                 val a = if (x)
                     1
                 else 2
-                return if (x) 3 else 4
+                return if (
+                    x
+                ) 3 else 4
             }
         """).size)
     }
 
-    @Test fun `return branches cannot use the assignment exception`() {
-        assertEquals(2, BracesRequired(TestConfig()).lint("""
-            fun f(x: Boolean) { val a = if (x) 1 else return }
+    @Test fun `single-line nested conditionals are allowed but multiline outer bodies need braces`() {
+        assertTrue(BracesRequired(TestConfig()).lint("""
+            fun f(a: Boolean, b: Boolean) { if (a) if (b) println(1) else println(2) }
+        """).isEmpty())
+        assertEquals(1, BracesRequired(TestConfig()).lint("""
+            fun f(a: Boolean, b: Boolean) {
+                if (a)
+                    if (b) println(1) else println(2)
+            }
         """).size)
     }
 
-    @Test fun `an unbraced nested if in the then branch still requires braces`() {
+    @Test fun `an else on another line makes the whole conditional multiline`() {
         assertEquals(2, BracesRequired(TestConfig()).lint("""
-            fun f(a: Boolean, b: Boolean) { if (a) if (b) println(1) else { println(2) } }
-        """).size)
+            fun f(x: Boolean) {
+                if (x) println(1)
+                else println(2)
+            }
+        """.trimIndent().replace("\n", "\r\n")).size)
     }
 
     @Test fun `standard Detekt suppression is respected`() {

@@ -83,7 +83,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | `NoForceUnwrap` | Reports postfix `!!`. Suggests safe `let` or a local value with an Elvis early return. | No |
 | `ExhaustiveWhen` | Requires exhaustive `when` expressions and statements. Compiler-proven exhaustive cases need no `else`. | Yes |
 | `NoBlankLinesBetweenWhenBranches` | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed. | No |
-| `BracesRequired` | Requires braces for `if` and `else`, except single-line conditional assignment values. Allows `else if` chains. | No |
+| `BracesRequired` | Requires braces for multiline `if` and `if-else` conditionals. Single-line conditionals are allowed in any context, including early returns. Allows `else if` chains. | No |
 | `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
 | `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
 | `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
@@ -105,6 +105,23 @@ data class User(
 ```
 
 An undocumented first property still counts as the first property. Ordinary classes, body properties, and undocumented parameters are excluded. Blank lines inside comments do not count as whitespace before a KDoc.
+
+### Conditional braces
+
+Braces are optional when the entire `if` or `if-else` fits on one physical line, regardless of whether it assigns a value, calls a function, or transfers control:
+
+```kotlin
+if (!isReady) return
+if (enabled) start() else stop()
+```
+
+Multiline conditionals require braces around their bodies:
+
+```kotlin
+if (!isReady) {
+    return
+}
+```
 
 ### Default arguments
 

@@ -70,32 +70,15 @@ class NoBlankLinesBetweenWhenBranches(config: Config = Config.empty) : Conventio
 }
 
 class BracesRequired(config: Config = Config.empty) : ConventionRule(
-    config, "BracesRequired", "Use braces for if and else, except a single-line if used as an assignment value."
+    config, "BracesRequired", "Use braces for if and else unless the entire conditional fits on one physical line."
 ) {
     override fun visitIfExpression(expression: KtIfExpression) {
         super.visitIfExpression(expression)
-        if (isSimpleAssignment(expression)) return
+        if (expression.text.none { it == '\n' || it == '\r' }) return
         listOfNotNull(expression.then, expression.`else`).forEach { branch ->
             // An else-if continues the conditional chain; its own branches are visited separately.
             if (branch !is KtBlockExpression && !(branch == expression.`else` && branch is KtIfExpression)) flag(branch)
         }
-    }
-
-    private fun isSimpleAssignment(expression: KtIfExpression): Boolean {
-        if (expression.text.contains('\n') || expression.text.contains('\r')) return false
-        if (expression.`else` == null) return false
-        val branches = listOfNotNull(expression.then, expression.`else`)
-        if (branches.any { it is KtBlockExpression || it is KtIfExpression || it is KtReturnExpression ||
-                it is KtThrowExpression || it is KtBreakExpression || it is KtContinueExpression }) return false
-        var value: PsiElement = expression
-        while (value.parent is KtParenthesizedExpression) value = value.parent
-        val parent = value.parent
-        val assignment = when (parent) {
-            is KtProperty -> parent.initializer == value
-            is KtBinaryExpression -> parent.operationToken == KtTokens.EQ && parent.right == value
-            else -> false
-        }
-        return assignment && !parent.text.contains('\n') && !parent.text.contains('\r')
     }
 }
 
