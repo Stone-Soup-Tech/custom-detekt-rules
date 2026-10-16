@@ -13,6 +13,7 @@ class AndroidConventionRuleSetProvider : RuleSetProvider {
         ExhaustiveWhen(config),
         NoBlankLinesBetweenWhenBranches(config),
         BracesRequired(config),
+        WhenBranchBracesRequired(config),
         SingleInitBlock(config),
         MemberVisibilityOrder(config),
         RedundantDefaultArgument(config),

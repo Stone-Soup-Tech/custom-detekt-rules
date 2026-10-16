@@ -49,7 +49,7 @@ JitPack builds the selected GitHub revision and makes its artifacts available to
 
 ## Configuration
 
-Copy [config/detekt.yml](config/detekt.yml) to your project's `config/detekt.yml`. The sample enables all ten rules in the `android-conventions` ruleset. Merge that section into your existing Detekt configuration if you already have one.
+Copy [config/detekt.yml](config/detekt.yml) to your project's `config/detekt.yml`. The sample enables all rules in the `android-conventions` ruleset. Merge that section into your existing Detekt configuration if you already have one.
 
 Set `AppOwnedExtension.appOwnedPackages` to the package roots owned by your application, including shared and domain modules:
 
@@ -84,6 +84,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | `ExhaustiveWhen` | Requires exhaustive `when` expressions and statements. Compiler-proven exhaustive cases need no `else`. | Yes |
 | `NoBlankLinesBetweenWhenBranches` | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed. | No |
 | `BracesRequired` | Requires braces for multiline `if` and `if-else` conditionals. Single-line conditionals are allowed in any context, including early returns. Allows `else if` chains. | No |
+| `WhenBranchBracesRequired` | Requires braces when a `when` branch's arrow and body span multiple physical lines. Multiple conditions may span lines if the arrow and result stay on one line. | No |
 | `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
 | `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
 | `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
@@ -123,6 +124,24 @@ if (!isReady) {
     return
 }
 ```
+
+### When branch braces
+
+`WhenBranchBracesRequired` checks each branch independently, including `else`. Multiple options may share an inline result. If the result starts after the arrow's line or continues across lines, wrap it in braces:
+
+```kotlin
+when (fileType) {
+    FileType.PNG,
+    FileType.JPEG -> "Image"
+    FileType.CSV,
+    FileType.TSV -> {
+        buildTablePreview(file)
+    }
+    FileType.TEXT -> "Plain text"
+}
+```
+
+The rule checks physical line breaks, without imposing a maximum line length.
 
 ### Default arguments
 

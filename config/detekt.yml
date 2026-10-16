@@ -10,6 +10,8 @@ android-conventions:
     active: true
   BracesRequired:
     active: true
+  WhenBranchBracesRequired:
+    active: true
   SingleInitBlock:
     active: true
   MemberVisibilityOrder:

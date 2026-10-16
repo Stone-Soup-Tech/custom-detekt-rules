@@ -82,6 +82,20 @@ class BracesRequired(config: Config = Config.empty) : ConventionRule(
     }
 }
 
+class WhenBranchBracesRequired(config: Config = Config.empty) : ConventionRule(
+    config, "WhenBranchBracesRequired", "Use braces when a when branch's arrow and body span multiple physical lines."
+) {
+    override fun visitWhenEntry(jetWhenEntry: KtWhenEntry) {
+        super.visitWhenEntry(jetWhenEntry)
+        val body = jetWhenEntry.expression ?: return
+        if (body is KtBlockExpression) return
+        val arrow = jetWhenEntry.arrow ?: return
+        // Conditions may span lines; only the arrow and its body must fit on one line.
+        val arrowAndBody = jetWhenEntry.text.substring(arrow.startOffsetInParent)
+        if (arrowAndBody.any { it == '\n' || it == '\r' }) flag(body)
+    }
+}
+
 class SingleInitBlock(config: Config = Config.empty) : ConventionRule(
     config, "SingleInitBlock", "Use one init block per class; preserve execution order when consolidating initialization."
 ) {
