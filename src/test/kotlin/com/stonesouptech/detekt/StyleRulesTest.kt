@@ -275,8 +275,8 @@ class StyleRulesTest {
         val provider = ServiceLoader.load(RuleSetProvider::class.java).filterIsInstance<AndroidConventionRuleSetProvider>().single()
         assertEquals("android-conventions", provider.ruleSetId)
         val rules = provider.instance(Config.empty).rules
-        assertEquals(11, rules.size)
-        assertEquals(11, rules.map { it.ruleId }.distinct().size)
+        assertEquals(12, rules.size)
+        assertEquals(12, rules.map { it.ruleId }.distinct().size)
         assertTrue(rules.any { it is WhenBranchBracesRequired })
     }
 }

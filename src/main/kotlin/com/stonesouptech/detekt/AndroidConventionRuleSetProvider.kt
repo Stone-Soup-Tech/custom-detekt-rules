@@ -9,6 +9,7 @@ class AndroidConventionRuleSetProvider : RuleSetProvider {
 
     override fun instance(config: Config) = RuleSet(ruleSetId, listOf(
         BlankLineBeforeDocumentedProperty(config),
+        KDocLiteralBackticks(config),
         NoForceUnwrap(config),
         ExhaustiveWhen(config),
         NoBlankLinesBetweenWhenBranches(config),

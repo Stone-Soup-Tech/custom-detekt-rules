@@ -80,6 +80,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | Rule | Behavior | Type resolution |
 | --- | --- | --- |
 | `BlankLineBeforeDocumentedProperty` | Requires a blank line before data-class constructor property KDoc after the first property. Supports annotations and multiline declarations. | No |
+| `KDocLiteralBackticks` | Requires backticks around standalone lowercase `true`, `false`, and `null` in KDoc prose. Skips code spans, fenced code blocks, links, and URLs. | No |
 | `NoForceUnwrap` | Reports postfix `!!`. Suggests safe `let` or a local value with an Elvis early return. | No |
 | `ExhaustiveWhen` | Requires exhaustive `when` expressions and statements. Compiler-proven exhaustive cases need no `else`. | Yes |
 | `NoBlankLinesBetweenWhenBranches` | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed. | No |
@@ -184,3 +185,13 @@ Static analysis cannot judge whether behavior is stable or whether a boundary ju
 
 All rules report findings without automatic corrections. In particular, combining init blocks or moving members can change initialization order. Keep initialization steps in their original execution order and extract complex logic into class-level helpers as appropriate. Detekt's usual `@Suppress("RuleName")` mechanism is available for specific exceptions.
 
+
+### KDoc literal formatting
+
+Use inline code for literal values:
+
+```kotlin
+/** Returns `true` when enabled, or `null` when unknown. */
+```
+
+`KDocLiteralBackticks` checks standalone lowercase words in KDoc, including tag descriptions. It also flags ordinary prose uses of these words; use the standard rule suppression for exceptions. Regular comments, string literals, longer identifiers, existing code spans (including longer backtick delimiters), fenced code blocks, KDoc links, and link destinations are excluded. Inline Markdown link labels are checked. This rule reports findings without automatic correction.

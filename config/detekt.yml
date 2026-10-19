@@ -2,6 +2,8 @@ android-conventions:
   active: true
   BlankLineBeforeDocumentedProperty:
     active: true
+  KDocLiteralBackticks:
+    active: true
   NoForceUnwrap:
     active: true
   ExhaustiveWhen:
