@@ -1,5 +1,7 @@
 # Android Detekt conventions
 
+[![](https://jitpack.io/v/Stone-Soup-Tech/custom-detekt-rules.svg)](https://jitpack.io/#Stone-Soup-Tech/custom-detekt-rules)
+
 Custom Detekt rules for Kotlin and Android projects, covering documentation, null safety, control flow, initialization, visibility, default arguments, and app-owned extensions.
 
 ## Requirements
