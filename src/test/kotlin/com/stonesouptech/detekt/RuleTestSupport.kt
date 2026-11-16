@@ -27,6 +27,7 @@ internal fun Rule.lint(
     code: String,
     resolve: Boolean = false,
     omitExhaustivenessFlags: Boolean = false,
+    allowedCompilerErrors: Set<String> = emptySet(),
 ): List<Finding> {
     check(KotlinVersion.CURRENT == KotlinVersion(2, 0, 21)) {
         "Detekt 1.23.8 semantic tests require kotlin-stdlib 2.0.21; found ${KotlinVersion.CURRENT}"
@@ -58,7 +59,7 @@ internal fun Rule.lint(
             analysis.throwIfError()
             val errors = analysis.bindingContext.diagnostics.all().filter {
                 it.severity == org.jetbrains.kotlin.diagnostics.Severity.ERROR &&
-                    it.factory.name != "NO_ELSE_IN_WHEN"
+                    it.factory.name != "NO_ELSE_IN_WHEN" && it.factory.name !in allowedCompilerErrors
             }
             check(errors.isEmpty()) { "Unexpected compiler errors: ${errors.map { it.factory.name }}" }
             val context = analysis.bindingContext

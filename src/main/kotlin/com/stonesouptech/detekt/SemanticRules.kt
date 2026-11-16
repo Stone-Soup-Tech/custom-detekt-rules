@@ -12,15 +12,19 @@ import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
+import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.descriptors.VariableDescriptor
+import org.jetbrains.kotlin.diagnostics.WhenMissingCase
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.constants.CompileTimeConstant
 import org.jetbrains.kotlin.types.TypeUtils
+import org.jetbrains.kotlin.types.error.ErrorUtils
 
 @RequiresTypeResolution
 class ExhaustiveWhen(config: Config = Config.empty) : ConventionRule(
@@ -31,14 +35,67 @@ class ExhaustiveWhen(config: Config = Config.empty) : ConventionRule(
         if (expression.subjectExpression == null || expression.elseExpression != null) return
         // Without a resolved subject type, missing compiler flags cannot prove missing cases.
         val subjectType = WhenChecker.whenSubjectType(expression, bindingContext) ?: return
+        if (ErrorUtils.containsErrorType(subjectType)) return
         if (KotlinBuiltIns.isPrimitiveTypeOrNullablePrimitiveType(subjectType) ||
             KotlinBuiltIns.isStringOrNullableString(subjectType) ||
             KotlinBuiltIns.isUnsignedNumber(TypeUtils.makeNotNullable(subjectType))
         ) return
-        if (bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] != true &&
-            bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] != true &&
-            WhenChecker.getMissingCases(expression, bindingContext).isNotEmpty()
-        ) flag(expression)
+        if (bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] == true ||
+            bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] == true
+        ) return
+        val excludedEntries = excludedEnumEntries(expression)
+        val missingCases = WhenChecker.getMissingCases(expression, bindingContext).filterNot {
+            it is WhenMissingCase.EnumCheckIsMissing && it.callableId.asSingleFqName().asString() in excludedEntries
+        }
+        if (missingCases.isEmpty()) return
+        flag(expression,
+            "Missing cases: " +
+                missingCases.joinToString { it.branchConditionText } + ". Add the missing branches or else.")
+    }
+
+    private fun excludedEnumEntries(expression: KtWhenExpression): Set<String> {
+        val subject = KtPsiUtil.deparenthesize(expression.subjectExpression) as? KtNameReferenceExpression
+            ?: return emptySet()
+        val target = bindingContext[BindingContext.REFERENCE_TARGET, subject] as? VariableDescriptor
+            ?: return emptySet()
+        val source = DescriptorToSourceUtils.descriptorToDeclaration(target)
+        if (target.isVar || (target !is ValueParameterDescriptor &&
+                (source !is KtProperty || !source.isLocal || source.hasDelegate()))) return emptySet()
+        val block = expression.parent as? KtBlockExpression ?: return emptySet()
+        return block.statements.takeWhile { it != expression }.filterIsInstance<KtIfExpression>()
+            .filter { it.`else` == null && exits(it.then) }
+            .flatMap { guardedEntries(it.condition, target) }.toSet()
+    }
+
+    private fun exits(expression: KtExpression?): Boolean {
+        val last = (expression as? KtBlockExpression)?.statements?.lastOrNull() ?: expression
+        return last is KtThrowExpression || last is KtReturnExpression && last.getTargetLabel() == null
+    }
+
+    private fun guardedEntries(condition: KtExpression?, subject: VariableDescriptor): Set<String> {
+        val binary = KtPsiUtil.deparenthesize(condition) as? KtBinaryExpression ?: return emptySet()
+        if (binary.operationToken == KtTokens.OROR) {
+            return guardedEntries(binary.left, subject) + guardedEntries(binary.right, subject)
+        }
+        if (binary.operationToken != KtTokens.EQEQ) return emptySet()
+        val left = referenceTarget(binary.left)
+        val right = referenceTarget(binary.right)
+        val entry = when (subject) {
+            left -> right
+            right -> left
+            else -> null
+        } as? ClassDescriptor ?: return emptySet()
+        if (entry.kind != ClassKind.ENUM_ENTRY) return emptySet()
+        return setOf(DescriptorUtils.getFqNameSafe(entry).asString())
+    }
+
+    private fun referenceTarget(expression: KtExpression?): DeclarationDescriptor? {
+        val reference = when (val unwrapped = KtPsiUtil.deparenthesize(expression)) {
+            is KtDotQualifiedExpression -> unwrapped.selectorExpression as? KtNameReferenceExpression
+            is KtNameReferenceExpression -> unwrapped
+            else -> null
+        } ?: return null
+        return bindingContext[BindingContext.REFERENCE_TARGET, reference]
     }
 }
 

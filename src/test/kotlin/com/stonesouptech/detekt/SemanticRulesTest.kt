@@ -4,6 +4,87 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class SemanticRulesTest {
+    @Test fun `enum entries handled by preceding return and throw guards are excluded`() {
+        assertTrue(ExhaustiveWhen(TestConfig()).lint("""
+            enum class Action { OPEN, MOVE, HELP, DELETE }
+            fun handle(action: Action) {
+                if (action == Action.MOVE) { println("move"); return }
+                if (Action.HELP == action || action == Action.DELETE) { throw IllegalStateException() }
+                println("continue")
+                when (action) { Action.OPEN -> println("open") }
+            }
+        """, resolve = true).isEmpty())
+    }
+
+    @Test fun `guards must exit unconditionally and compare the same stable subject`() {
+        assertEquals(4, ExhaustiveWhen(TestConfig()).lint("""
+            enum class Action { OPEN, MOVE }
+            fun noExit(action: Action) {
+                if (action == Action.MOVE) { println("move") }
+                when (action) { Action.OPEN -> println("open") }
+            }
+            fun conditionalExit(action: Action, ready: Boolean) {
+                if (action == Action.MOVE) { if (ready) return }
+                when (action) { Action.OPEN -> println("open") }
+            }
+            fun differentSubject(action: Action, other: Action) {
+                if (other == Action.MOVE) return
+                when (action) { Action.OPEN -> println("open") }
+            }
+            fun mutableSubject(input: Action) {
+                var action = input
+                if (action == Action.MOVE) return
+                action = Action.MOVE
+                when (action) { Action.OPEN -> println("open") }
+            }
+        """, resolve = true).size)
+    }
+
+    @Test fun `guarded entries do not hide other missing entries or null`() {
+        val findings = ExhaustiveWhen(TestConfig()).lint("""
+            enum class Action { OPEN, MOVE, HELP }
+            fun incomplete(action: Action) {
+                if (action == Action.MOVE) return
+                when (action) { Action.OPEN -> println("open") }
+            }
+            fun nullable(action: Action?) {
+                if (action == Action.MOVE || action == Action.HELP) return
+                when (action) { Action.OPEN -> println("open") }
+            }
+        """, resolve = true)
+        assertEquals(2, findings.size)
+        assertTrue(findings[0].message.contains("Action.HELP"))
+        assertFalse(findings[0].message.contains("Action.MOVE"))
+        assertTrue(findings[1].message.contains("Missing cases: null"))
+    }
+
+    @Test fun `compiler error subject types do not produce exhaustive when findings`() {
+        assertTrue(ExhaustiveWhen(TestConfig()).lint("""
+            fun handle(state: MissingState) {
+                when (state.phase) { 1 -> println("first") }
+            }
+        """, resolve = true, allowedCompilerErrors = setOf("UNRESOLVED_REFERENCE")).isEmpty())
+    }
+
+    @Test fun `findings identify missing enum entries and null`() {
+        val findings = ExhaustiveWhen(TestConfig()).lint("""
+            package sample
+            enum class Choice { FIRST, SECOND }
+            fun incomplete(choice: Choice) {
+                when (choice) { Choice.FIRST -> println("first") }
+            }
+            fun nullable(choice: Choice?) {
+                when (choice) {
+                    Choice.FIRST -> println("first")
+                    Choice.SECOND -> println("second")
+                }
+            }
+        """, resolve = true)
+        assertEquals(2, findings.size)
+        assertTrue(findings[0].message.contains("SECOND"))
+        assertTrue(findings[1].message.contains("Missing cases: null"))
+    }
+
     @Test fun `complete enum property remains exhaustive without cached compiler flags`() {
         val code = """
             enum class AddKeyEventPlayerType { CUSTOM_KEY_EVENT, MAIN_OR_ANY_EVENT_ONLY }

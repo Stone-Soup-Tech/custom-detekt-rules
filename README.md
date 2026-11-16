@@ -77,6 +77,10 @@ Use a variant task with type resolution to run all rules:
 
 Replace `app` and `Debug` with your module and variant. The plain `detekt` task runs syntax checks but does not supply the type information needed by `ExhaustiveWhen`, `RedundantDefaultArgument`, `NamedArgumentsForLargeCalls`, or `AppOwnedExtension`. See [Detekt's type-resolution setup](https://detekt.dev/docs/1.23.8/gettingstarted/gradle/#using-type-resolution).
 
+`ExhaustiveWhen` skips subjects with missing types or compiler error types because their possible cases cannot be determined reliably. Findings list the missing cases.
+
+For enum subjects, preceding `if` guards in the same block can cover entries when they unconditionally return or throw. The rule recognizes equality comparisons (including `||` combinations) against the same function parameter or ordinary immutable local value. Mutable subjects, delegated properties, and conditional exits are not treated as covered.
+
 ## Rules
 
 | Rule                                | Behavior                                                                                                                                                                                                                                                | Type resolution |
