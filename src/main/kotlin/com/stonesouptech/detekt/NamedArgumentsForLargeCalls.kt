@@ -2,6 +2,8 @@ package com.stonesouptech.detekt
 
 import io.gitlab.arturbosch.detekt.api.Config
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
+import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor
+import org.jetbrains.kotlin.load.java.descriptors.JavaCallableMemberDescriptor
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 
@@ -36,6 +38,9 @@ class NamedArgumentsForLargeCalls(config: Config = Config.empty) : ConventionRul
         val resolved = bindingContext[BindingContext.RESOLVED_CALL, call] ?: return
         if (!resolved.status.isSuccess) return
         val descriptor = resolved.resultingDescriptor
+        val underlying = (descriptor as? TypeAliasConstructorDescriptor)?.underlyingConstructorDescriptor ?: descriptor
+        // Java bytecode can expose parameter names, but Kotlin still forbids named arguments.
+        if (underlying.original is JavaCallableMemberDescriptor) return
         if (descriptor.valueParameters.size < 3 || !descriptor.hasStableParameterNames()) return
 
         // Defaults and trailing lambdas do not count; vararg elements supply one parameter.

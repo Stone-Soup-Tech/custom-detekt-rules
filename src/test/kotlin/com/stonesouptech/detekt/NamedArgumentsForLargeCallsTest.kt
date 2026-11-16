@@ -88,6 +88,22 @@ class NamedArgumentsForLargeCallsTest {
         """).isEmpty())
     }
 
+    @Test fun `Java superclass constructors and explicit super delegation need no names`() {
+        assertTrue(lint("""
+            typealias WorkerThread = Thread
+            class Worker(group: ThreadGroup, action: Runnable, label: String) :
+                Thread(group, action, label)
+            class DelegatedWorker : Thread {
+                constructor(group: ThreadGroup, action: Runnable, label: String) :
+                    super(group, action, label)
+            }
+            fun caller(group: ThreadGroup, action: Runnable, label: String) {
+                Thread(group, action, label)
+                WorkerThread(group, action, label)
+            }
+        """).isEmpty())
+    }
+
     @Test fun `extension methods and custom invoke operators have usable names`() {
         assertEquals(2, lint("""
             fun String.extend(first: Int, second: Int, third: Int) = Unit

@@ -84,6 +84,73 @@ class SemanticRulesTest {
         """, resolve = true).size)
     }
 
+    @Test fun `prepared preview event callback covers both sealed variants`() {
+        assertTrue(ExhaustiveWhen(TestConfig()).lint("""
+            sealed interface EpidemicTrackPreviewEvent {
+                data class PlayStop(
+                    val trackId: String,
+                    val streamUrl: String,
+                    val popularStartMillis: Long,
+                    val durationMillis: Long,
+                ) : EpidemicTrackPreviewEvent
+                data class SeekOrPlay(
+                    val trackId: String,
+                    val streamUrl: String,
+                    val positionMillis: Long,
+                    val durationMillis: Long,
+                ) : EpidemicTrackPreviewEvent
+            }
+            class Flow<T>
+            fun <T> Flow<T>.launchAndCollectFlow(owner: Any, action: suspend (T) -> Unit) = Unit
+            class ViewModel { val trackPreviewPrepared = Flow<EpidemicTrackPreviewEvent>() }
+            class TrackPlayer {
+                fun playStop(trackId: String, streamUrl: String, popularStartMillis: Long, durationMillis: Long) = Unit
+                fun seekOrPlay(trackId: String, streamUrl: String, positionMillis: Long, durationMillis: Long) = Unit
+            }
+            class Screen {
+                val viewModel = ViewModel()
+                val trackPlayer = TrackPlayer()
+                fun bind() {
+                    viewModel.trackPreviewPrepared.launchAndCollectFlow(this) { event ->
+                        when (event) {
+                            is EpidemicTrackPreviewEvent.PlayStop -> {
+                                trackPlayer.playStop(
+                                    trackId = event.trackId,
+                                    streamUrl = event.streamUrl,
+                                    popularStartMillis = event.popularStartMillis,
+                                    durationMillis = event.durationMillis,
+                                )
+                            }
+                            is EpidemicTrackPreviewEvent.SeekOrPlay -> {
+                                trackPlayer.seekOrPlay(
+                                    trackId = event.trackId,
+                                    streamUrl = event.streamUrl,
+                                    positionMillis = event.positionMillis,
+                                    durationMillis = event.durationMillis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        """, resolve = true).isEmpty())
+    }
+
+    @Test fun `missing type resolution does not produce exhaustive when findings`() {
+        assertTrue(ExhaustiveWhen(TestConfig()).lint("""
+            sealed interface Action {
+                class Start : Action
+                class Stop : Action
+            }
+            fun handle(action: Action) {
+                when (action) {
+                    is Action.Start -> println("start")
+                    is Action.Stop -> println("stop")
+                }
+            }
+        """).isEmpty())
+    }
+
     @Test fun `sealed interface statements handle every subtype`() {
         assertTrue(ExhaustiveWhen(TestConfig()).lint("""
             sealed interface PreviewEvent {
@@ -219,11 +286,27 @@ class SemanticRulesTest {
         """, resolve = true).size)
     }
 
-    @Test fun `super and this constructor default arguments are checked`() {
-        assertEquals(2, RedundantDefaultArgument(TestConfig()).lint("""
+    @Test fun `superclass declarations are checked while explicit constructor delegation is ignored`() {
+        assertEquals(1, RedundantDefaultArgument(TestConfig()).lint("""
             open class Base(val value: Int = 1)
             class Child : Base(1)
             class Other(val value: Int = 1) { constructor(s: String) : this(1) }
+            class Delegated : Base {
+                constructor() : super(1)
+            }
+        """, resolve = true).size)
+    }
+
+    @Test fun `function calls inside constructor delegation are still checked`() {
+        assertEquals(2, RedundantDefaultArgument(TestConfig()).lint("""
+            fun count(value: Int = 1) = value
+            open class Base(val value: Int = 1)
+            class Child : Base {
+                constructor() : super(count(1))
+            }
+            class Other(val value: Int = 1) {
+                constructor(text: String) : this(count(1))
+            }
         """, resolve = true).size)
     }
 

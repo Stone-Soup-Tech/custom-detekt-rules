@@ -26,12 +26,12 @@ class ExhaustiveWhen(config: Config = Config.empty) : ConventionRule(
     override fun visitWhenExpression(expression: KtWhenExpression) {
         super.visitWhenExpression(expression)
         if (expression.subjectExpression == null || expression.elseExpression != null) return
-        val subjectType = WhenChecker.whenSubjectType(expression, bindingContext)
-        if (subjectType != null && (
-                KotlinBuiltIns.isPrimitiveTypeOrNullablePrimitiveType(subjectType) ||
-                    KotlinBuiltIns.isStringOrNullableString(subjectType) ||
-                    KotlinBuiltIns.isUnsignedNumber(TypeUtils.makeNotNullable(subjectType))
-                )) return
+        // Without a resolved subject type, missing compiler flags cannot prove missing cases.
+        val subjectType = WhenChecker.whenSubjectType(expression, bindingContext) ?: return
+        if (KotlinBuiltIns.isPrimitiveTypeOrNullablePrimitiveType(subjectType) ||
+            KotlinBuiltIns.isStringOrNullableString(subjectType) ||
+            KotlinBuiltIns.isUnsignedNumber(TypeUtils.makeNotNullable(subjectType))
+        ) return
         if (bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] != true &&
             bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] != true
         ) flag(expression)
@@ -49,11 +49,6 @@ class RedundantDefaultArgument(config: Config = Config.empty) : ConventionRule(
 
     override fun visitSuperTypeCallEntry(call: KtSuperTypeCallEntry) {
         super.visitSuperTypeCallEntry(call)
-        checkCall(call)
-    }
-
-    override fun visitConstructorDelegationCall(call: KtConstructorDelegationCall) {
-        super.visitConstructorDelegationCall(call)
         checkCall(call)
     }
 
