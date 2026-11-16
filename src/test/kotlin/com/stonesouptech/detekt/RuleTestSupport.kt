@@ -17,11 +17,17 @@ import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.psi.KtPsiFactory
+import org.jetbrains.kotlin.resolve.BindingContext
+import org.jetbrains.kotlin.util.slicedMap.ReadOnlySlice
 import java.io.File
 import java.nio.file.Files
 
 /** Runs the actual PSI visitor; semantic tests use the same K1 compiler analysis as Detekt 1.23.8. */
-internal fun Rule.lint(code: String, resolve: Boolean = false): List<Finding> {
+internal fun Rule.lint(
+    code: String,
+    resolve: Boolean = false,
+    omitExhaustivenessFlags: Boolean = false,
+): List<Finding> {
     check(KotlinVersion.CURRENT == KotlinVersion(2, 0, 21)) {
         "Detekt 1.23.8 semantic tests require kotlin-stdlib 2.0.21; found ${KotlinVersion.CURRENT}"
     }
@@ -55,7 +61,16 @@ internal fun Rule.lint(code: String, resolve: Boolean = false): List<Finding> {
                     it.factory.name != "NO_ELSE_IN_WHEN"
             }
             check(errors.isEmpty()) { "Unexpected compiler errors: ${errors.map { it.factory.name }}" }
-            visitFile(file, analysis.bindingContext)
+            val context = analysis.bindingContext
+            val ruleContext = if (omitExhaustivenessFlags) object : BindingContext by context {
+                override fun <K, V> get(slice: ReadOnlySlice<K, V>, key: K): V? {
+                    if (slice === BindingContext.EXHAUSTIVE_WHEN ||
+                        slice === BindingContext.IMPLICIT_EXHAUSTIVE_WHEN
+                    ) return null
+                    return context[slice, key]
+                }
+            } else context
+            visitFile(file, ruleContext)
         } else visitFile(file)
         return findings.toList()
     } finally {

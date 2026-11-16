@@ -36,7 +36,8 @@ class ExhaustiveWhen(config: Config = Config.empty) : ConventionRule(
             KotlinBuiltIns.isUnsignedNumber(TypeUtils.makeNotNullable(subjectType))
         ) return
         if (bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] != true &&
-            bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] != true
+            bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] != true &&
+            WhenChecker.getMissingCases(expression, bindingContext).isNotEmpty()
         ) flag(expression)
     }
 }

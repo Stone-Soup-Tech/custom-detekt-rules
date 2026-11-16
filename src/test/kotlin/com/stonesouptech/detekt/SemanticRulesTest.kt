@@ -4,6 +4,57 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class SemanticRulesTest {
+    @Test fun `complete enum property remains exhaustive without cached compiler flags`() {
+        val code = """
+            enum class AddKeyEventPlayerType { CUSTOM_KEY_EVENT, MAIN_OR_ANY_EVENT_ONLY }
+            class UiState(final val addKeyEventPlayerType: AddKeyEventPlayerType)
+            fun handle(uiState: UiState) {
+                when (uiState.addKeyEventPlayerType) {
+                    AddKeyEventPlayerType.CUSTOM_KEY_EVENT -> println("custom")
+                    AddKeyEventPlayerType.MAIN_OR_ANY_EVENT_ONLY -> println("main")
+                }
+            }
+        """
+        for (omitFlags in listOf(false, true)) {
+            assertTrue(ExhaustiveWhen(TestConfig()).lint(
+                code, resolve = true, omitExhaustivenessFlags = omitFlags
+            ).isEmpty())
+        }
+    }
+
+    @Test fun `missing cached flags still requires enum entries and nullable coverage`() {
+        assertEquals(2, ExhaustiveWhen(TestConfig()).lint("""
+            enum class Choice { FIRST, SECOND }
+            fun incomplete(choice: Choice) {
+                when (choice) { Choice.FIRST -> println("first") }
+            }
+            fun nullable(choice: Choice?) {
+                when (choice) {
+                    Choice.FIRST -> println("first")
+                    Choice.SECOND -> println("second")
+                }
+            }
+        """, resolve = true, omitExhaustivenessFlags = true).size)
+    }
+
+    @Test fun `sealed coverage is recomputed without cached flags`() {
+        assertEquals(1, ExhaustiveWhen(TestConfig()).lint("""
+            sealed interface Action {
+                class Start : Action
+                class Stop : Action
+            }
+            fun complete(action: Action) {
+                when (action) {
+                    is Action.Start -> println("start")
+                    is Action.Stop -> println("stop")
+                }
+            }
+            fun incomplete(action: Action) {
+                when (action) { is Action.Start -> println("start") }
+            }
+        """, resolve = true, omitExhaustivenessFlags = true).size)
+    }
+
     @Test fun `non exhaustive class subjects require remaining cases`() {
         assertEquals(1, ExhaustiveWhen(TestConfig()).lint("""
             interface Message
