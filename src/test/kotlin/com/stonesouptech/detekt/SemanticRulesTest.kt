@@ -260,6 +260,27 @@ class SemanticRulesTest {
         """, resolve = true).size)
     }
 
+    @Test fun `named values equal to defaults are preserved while literals are reported`() {
+        assertEquals(1, RedundantDefaultArgument(TestConfig()).lint("""
+            const val DEFAULT = -1
+            val topLevel = -1
+            object Modes { const val AUTOMATIC = -1; val fallback = -1 }
+            fun read(mode: Int = -1) = mode
+            fun caller() {
+                val local = -1
+                read(DEFAULT)
+                read(topLevel)
+                read(Modes.AUTOMATIC)
+                read(Modes.fallback)
+                read(local)
+                read((DEFAULT))
+                read((Modes.AUTOMATIC))
+                read(mode = Modes.AUTOMATIC)
+                read(-1)
+            }
+        """, resolve = true).size)
+    }
+
     @Test fun `overloads different values omitted arguments and side effects are preserved`() {
         assertTrue(RedundantDefaultArgument(TestConfig()).lint("""
             fun f(a: Int = 1) = Unit
@@ -366,6 +387,32 @@ class SemanticRulesTest {
             fun Model<String>?.second() = 2
             fun <T> Model<T>.third() = 3
         """, resolve = true).size)
+    }
+
+    @Test fun `generic receivers with platform or implicit bounds are not app owned`() {
+        assertTrue(extensionRule().lint("""
+            package com.example.app
+            fun <T : AutoCloseable?, R> T.useSilent(block: (T) -> R): R? = block(this)
+            fun <T> T.describe() = toString()
+            val <T : CharSequence?> T.lengthOrZero: Int get() = this?.length ?: 0
+            fun <T, U : T> U.indirect() = toString()
+        """, resolve = true).isEmpty())
+    }
+
+    @Test fun `generic receivers follow app owned chained and multiple bounds`() {
+        val findings = extensionRule().lint("""
+            package com.example.app
+            interface Model
+            fun <T : Model?> T.first() = 1
+            val <T : Model> T.second: Int get() = 2
+            fun <T : Model, U : T> U.third() = 3
+            fun <T> T.fourth() where T : AutoCloseable, T : Model = 4
+            fun <T : Comparable<T>> T.recursivePlatform() = 5
+            // Extension rationale: This adapter must stay outside the model.
+            fun <T : Model> T.documented() = 6
+        """, resolve = true)
+        assertEquals(4, findings.size)
+        assertTrue(findings.all { it.message.contains("com.example.app.Model") })
     }
 
     @Test fun `ownership prefix requires a package boundary and must be configured`() {

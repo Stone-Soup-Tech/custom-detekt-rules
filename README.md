@@ -90,7 +90,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | `WhenBranchBracesRequired`          | Requires braces when a `when` branch's arrow and body span multiple physical lines. Multiple conditions may span lines if the arrow and result stay on one line.                                                                                        | No              |
 | `SingleInitBlock`                   | Reports each `init` block after the first in a class or object.                                                                                                                                                                                         | No              |
 | `MemberVisibilityOrder`             | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently.                                                                                               | No              |
-| `RedundantDefaultArgument`          | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. Ignores explicit `this(...)`/`super(...)` constructor delegation and generated data-class `copy` methods.       | Yes             |
+| `RedundantDefaultArgument`          | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. Arguments passed as named value references (`val`/`const val`) are preserved. Ignores explicit `this(...)`/`super(...)` constructor delegation and generated data-class `copy` methods.       | Yes             |
 | `NamedArgumentsForLargeCalls`       | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters inside parentheses.                                                                                         | Yes             |
 | `AppOwnedExtension`                 | Requires a nearby rationale for extension functions and properties on configured app-owned types.                                                                                                                                                       | Yes             |
 
@@ -154,7 +154,7 @@ fun refresh(force: Boolean = false) { /* ... */ }
 refresh(force = false) // reported: call refresh()
 ```
 
-This rule compares compiler constant values, including literals, null, const references, and constant expressions, and also recognizes resolved enum entries. It does not compare arbitrary expressions by spelling: two `Any()` or `loadValue()` calls can create different values or have side effects. Varargs and defaults whose source is unavailable (for example, compiled dependency declarations) are skipped. When removing a positional argument before other arguments, use named arguments for the remaining parameters as needed.
+This rule compares compiler constant values, including literals, null, and constant expressions, and also recognizes resolved enum entries. Arguments passed as named value references (`val`/`const val`), including qualified and parenthesized references, are preserved even when their values equal the default. Default parameter declarations can still use constant references. It does not compare arbitrary expressions by spelling: two `Any()` or `loadValue()` calls can create different values or have side effects. Varargs and defaults whose source is unavailable (for example, compiled dependency declarations) are skipped. When removing a positional argument before other arguments, use named arguments for the remaining parameters as needed.
 
 ### Named arguments
 
@@ -174,7 +174,7 @@ Omitted defaults do not count. Trailing lambdas outside parentheses do not count
 
 ### App-owned extensions
 
-Ownership is explicit through `appOwnedPackages`, matched at package boundaries. For example, `com.example.app` includes `com.example.app.models` but excludes `com.example.application`. The default empty list checks no receivers. Receiver types are resolved, including aliases, generics, and nullable types; external receivers are allowed.
+Ownership is explicit through `appOwnedPackages`, matched at package boundaries. For example, `com.example.app` includes `com.example.app.models` but excludes `com.example.application`. The default empty list checks no receivers. Receiver types are resolved, including aliases, generics, and nullable types; external receivers are allowed. Type parameter receivers are checked through their upper bounds, including chained and multiple bounds. A type parameter declared in an app package is only flagged when a bound resolves to an app-owned type.
 
 Move stable derived behavior into the receiver type. For a dependency-boundary exception, write an adjacent comment or KDoc with a nonempty `Extension rationale:` marker:
 

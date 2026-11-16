@@ -11,7 +11,10 @@ import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
+import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.descriptors.VariableDescriptor
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
@@ -71,11 +74,21 @@ class RedundantDefaultArgument(config: Config = Config.empty) : ConventionRule(
             if (parameter.varargElementType != null) return@forEach
             val value = argument.arguments.singleOrNull() ?: return@forEach
             val actual = value.getArgumentExpression() ?: return@forEach
+            if (isNamedValue(actual)) return@forEach
             val default = defaultExpression(parameter) ?: return@forEach
             val actualConstant = constant(actual) ?: return@forEach
             val defaultConstant = constant(default) ?: return@forEach
             if (actualConstant == defaultConstant) flag(value.asElement())
         }
+    }
+
+    private fun isNamedValue(expression: KtExpression): Boolean {
+        val reference = when (val unwrapped = KtPsiUtil.deparenthesize(expression)) {
+            is KtDotQualifiedExpression -> unwrapped.selectorExpression as? KtNameReferenceExpression
+            is KtNameReferenceExpression -> unwrapped
+            else -> null
+        } ?: return false
+        return bindingContext[BindingContext.REFERENCE_TARGET, reference] is VariableDescriptor
     }
 
     private fun defaultExpression(parameter: ValueParameterDescriptor): KtExpression? {
@@ -121,10 +134,23 @@ class AppOwnedExtension(config: Config = Config.empty) : ConventionRule(
         if (receiver == null) return
         val type = bindingContext[BindingContext.TYPE, receiver] ?: return
         val owner = type.constructor.declarationDescriptor ?: return
-        val fqName = DescriptorUtils.getFqNameSafe(owner).asString()
-        if (appOwnedPackages.none { it.isNotBlank() && (fqName == it || fqName.startsWith("$it.")) }) return
+        val fqName = appOwnedType(owner, mutableSetOf()) ?: return
         if (!hasRationale(declaration)) flag(declaration,
             "Move this behavior to $fqName or add a nearby 'Extension rationale: <reason>' comment.")
+    }
+
+    private fun appOwnedType(owner: ClassifierDescriptor, visited: MutableSet<ClassifierDescriptor>): String? {
+        if (!visited.add(owner)) return null
+        if (owner is TypeParameterDescriptor) {
+            return owner.upperBounds.firstNotNullOfOrNull { bound ->
+                bound.constructor.declarationDescriptor?.let { appOwnedType(it, visited) }
+            }
+        }
+        if (owner !is ClassDescriptor) return null
+        val fqName = DescriptorUtils.getFqNameSafe(owner).asString()
+        return fqName.takeIf {
+            appOwnedPackages.any { it.isNotBlank() && (fqName == it || fqName.startsWith("$it.")) }
+        }
     }
 
     private fun hasRationale(declaration: KtDeclaration): Boolean {
