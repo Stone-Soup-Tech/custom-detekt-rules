@@ -2,27 +2,37 @@ package com.stonesouptech.detekt
 
 import io.gitlab.arturbosch.detekt.api.*
 import io.gitlab.arturbosch.detekt.api.internal.RequiresTypeResolution
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.cfg.WhenChecker
 import org.jetbrains.kotlin.com.intellij.psi.PsiComment
 import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
 import org.jetbrains.kotlin.com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
-import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.constants.CompileTimeConstant
+import org.jetbrains.kotlin.types.TypeUtils
 
 @RequiresTypeResolution
 class ExhaustiveWhen(config: Config = Config.empty) : ConventionRule(
-    config, "ExhaustiveWhen", "Every when must cover all possible cases or include an else branch."
+    config, "ExhaustiveWhen", "When subjects other than primitives and String must cover all cases or include else."
 ) {
     override fun visitWhenExpression(expression: KtWhenExpression) {
         super.visitWhenExpression(expression)
-        if (expression.elseExpression == null &&
-            bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] != true &&
+        if (expression.subjectExpression == null || expression.elseExpression != null) return
+        val subjectType = WhenChecker.whenSubjectType(expression, bindingContext)
+        if (subjectType != null && (
+                KotlinBuiltIns.isPrimitiveTypeOrNullablePrimitiveType(subjectType) ||
+                    KotlinBuiltIns.isStringOrNullableString(subjectType) ||
+                    KotlinBuiltIns.isUnsignedNumber(TypeUtils.makeNotNullable(subjectType))
+                )) return
+        if (bindingContext[BindingContext.EXHAUSTIVE_WHEN, expression] != true &&
             bindingContext[BindingContext.IMPLICIT_EXHAUSTIVE_WHEN, expression] != true
         ) flag(expression)
     }
@@ -56,6 +66,12 @@ class RedundantDefaultArgument(config: Config = Config.empty) : ConventionRule(
         val callee = (element as? KtCallElement)?.calleeExpression ?: return
         val call = bindingContext[BindingContext.CALL, callee] ?: return
         val resolved = bindingContext[BindingContext.RESOLVED_CALL, call] ?: return
+        val descriptor = resolved.resultingDescriptor
+        // Generated copy defaults read the receiver's properties, not constructor defaults.
+        if (descriptor.name.asString() == "copy" &&
+            (descriptor as? CallableMemberDescriptor)?.kind == CallableMemberDescriptor.Kind.SYNTHESIZED &&
+            (descriptor.containingDeclaration as? ClassDescriptor)?.isData == true
+        ) return
         resolved.valueArguments.forEach { (parameter, argument) ->
             if (parameter.varargElementType != null) return@forEach
             val value = argument.arguments.singleOrNull() ?: return@forEach

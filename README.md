@@ -79,20 +79,20 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 
 ## Rules
 
-| Rule | Behavior | Type resolution |
-| --- | --- | --- |
-| `BlankLineBeforeDocumentedProperty` | Requires a blank line before data-class constructor property KDoc after the first property. Supports annotations and multiline declarations. | No |
-| `KDocLiteralBackticks` | Requires backticks around standalone lowercase `true`, `false`, and `null` in KDoc prose. Skips code spans, fenced code blocks, links, and URLs. | No |
-| `NoForceUnwrap` | Reports postfix `!!`. Suggests safe `let` or a local value with an Elvis early return. | No |
-| `ExhaustiveWhen` | Requires exhaustive `when` expressions and statements. Compiler-proven exhaustive cases need no `else`. | Yes |
-| `NoBlankLinesBetweenWhenBranches` | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed. | No |
-| `BracesRequired` | Requires braces for multiline `if` and `if-else` conditionals. Single-line conditionals are allowed in any context, including early returns. Allows `else if` chains. | No |
-| `WhenBranchBracesRequired` | Requires braces when a `when` branch's arrow and body span multiple physical lines. Multiple conditions may span lines if the arrow and result stay on one line. | No |
-| `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
-| `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
-| `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
-| `NamedArgumentsForLargeCalls` | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters inside parentheses. | Yes |
-| `AppOwnedExtension` | Requires a nearby rationale for extension functions and properties on configured app-owned types. | Yes |
+| Rule                                | Behavior                                                                                                                                                                                                                                                | Type resolution |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
+| `BlankLineBeforeDocumentedProperty` | Requires a blank line before data-class constructor property KDoc after the first property. Supports annotations and multiline declarations.                                                                                                            | No              |
+| `KDocLiteralBackticks`              | Requires backticks around standalone lowercase `true`, `false`, and `null` in KDoc prose. Skips code spans, fenced code blocks, links, and URLs.                                                                                                        | No              |
+| `NoForceUnwrap`                     | Reports postfix `!!`. Suggests safe `let` or a local value with an Elvis early return.                                                                                                                                                                  | No              |
+| `ExhaustiveWhen`                    | Requires exhaustive `when` expressions and statements with a subject, except primitive types (including unsigned types) and `String`, including nullable forms. Subjectless `when` blocks are ignored. Compiler-proven exhaustive cases need no `else`. | Yes             |
+| `NoBlankLinesBetweenWhenBranches`   | Disallows empty lines between adjacent branches, including around comments. Empty lines inside branch bodies are allowed.                                                                                                                               | No              |
+| `BracesRequired`                    | Requires braces for multiline `if` and `if-else` conditionals. Single-line conditionals are allowed in any context, including early returns. Allows `else if` chains.                                                                                   | No              |
+| `WhenBranchBracesRequired`          | Requires braces when a `when` branch's arrow and body span multiple physical lines. Multiple conditions may span lines if the arrow and result stay on one line.                                                                                        | No              |
+| `SingleInitBlock`                   | Reports each `init` block after the first in a class or object.                                                                                                                                                                                         | No              |
+| `MemberVisibilityOrder`             | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently.                                                                                               | No              |
+| `RedundantDefaultArgument`          | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. Ignores generated data-class `copy` methods, whose defaults preserve the receiver's values.                     | Yes             |
+| `NamedArgumentsForLargeCalls`       | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters inside parentheses.                                                                                         | Yes             |
+| `AppOwnedExtension`                 | Requires a nearby rationale for extension functions and properties on configured app-owned types.                                                                                                                                                       | Yes             |
 
 Visibility order is shared across properties and functions. Implicit visibility is treated as public. Constructors, init blocks, and nested type declarations do not participate as members in the ordering check.
 
