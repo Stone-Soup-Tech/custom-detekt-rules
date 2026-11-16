@@ -91,7 +91,7 @@ Replace `app` and `Debug` with your module and variant. The plain `detekt` task 
 | `SingleInitBlock` | Reports each `init` block after the first in a class or object. | No |
 | `MemberVisibilityOrder` | Orders properties and functions as public → internal → protected → private. Constructor properties participate; nested classes are checked independently. | No |
 | `RedundantDefaultArgument` | Reports explicit arguments equal to source default constants or enum entries, including inherited defaults and annotation constructors. | Yes |
-| `NamedArgumentsForLargeCalls` | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters. | Yes |
+| `NamedArgumentsForLargeCalls` | Requires named arguments when a callee declares at least three parameters and a call explicitly supplies at least three distinct parameters inside parentheses. | Yes |
 | `AppOwnedExtension` | Requires a nearby rationale for extension functions and properties on configured app-owned types. | Yes |
 
 Visibility order is shared across properties and functions. Implicit visibility is treated as public. Constructors, init blocks, and nested type declarations do not participate as members in the ordering check.
@@ -158,7 +158,7 @@ This rule compares compiler constant values, including literals, null, const ref
 
 ### Named arguments
 
-`NamedArgumentsForLargeCalls` checks both the resolved callee's parameter count and the number of distinct parameters explicitly supplied at the call site. When both counts are at least three, use names for arguments inside parentheses:
+`NamedArgumentsForLargeCalls` checks both the resolved callee's parameter count and the number of distinct parameters explicitly supplied inside parentheses. When both counts are at least three, use names for arguments inside parentheses:
 
 ```kotlin
 fun connect(host: String, port: Int, secure: Boolean = true) { /* ... */ }
@@ -170,7 +170,7 @@ connect(host = "example.com", port = 443, secure = false) // Allowed.
 
 The rule covers functions, methods, extension functions, Kotlin constructors (including `super`/`this` delegation and enum entries), annotation constructors, and custom `invoke` operators. It requires type resolution, so use a variant task such as `detektDebug`.
 
-Omitted defaults do not count. A trailing lambda counts as one supplied parameter but may remain outside parentheses. Multiple vararg elements count as one parameter; expanded elements cannot be named individually and are exempt, while a spread array can be named. Calls without stable parameter names, such as Java methods and function-type invocations, are skipped; parameter-name comments are not required.
+Omitted defaults do not count. Trailing lambdas outside parentheses do not count toward the threshold and do not require names. Lambda arguments inside parentheses count toward the threshold, even when already named, and require names like other arguments. Multiple vararg elements count as one parameter; expanded elements cannot be named individually and are exempt, while a spread array can be named. Calls without stable parameter names, such as Java methods and function-type invocations, are skipped; parameter-name comments are not required.
 
 ### App-owned extensions
 

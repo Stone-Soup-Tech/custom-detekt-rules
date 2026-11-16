@@ -96,22 +96,43 @@ class NamedArgumentsForLargeCallsTest {
         """).size)
     }
 
-    @Test fun `trailing lambdas count as supplied parameters but can stay outside parentheses`() {
-        assertEquals(1, lint("""
-            fun f(first: Int, second: Int, action: () -> Unit) = Unit
+    @Test fun `trailing lambdas do not count toward the threshold`() {
+        assertTrue(lint("""
+            fun process(first: Int, second: Int, action: () -> Unit) = Unit
             fun caller() {
-                f(1, 2) { }
-                f(first = 1, second = 2) { }
-                f(first = 1, second = 2, action = {})
+                process(1, 2) { }
+                process(first = 1, second = 2) { }
             }
-        """).size)
+        """).isEmpty())
     }
 
-    @Test fun `lambda arguments inside parentheses require names`() {
-        assertEquals(1, lint("""
-            fun f(first: Int, second: Int, action: () -> Unit) = Unit
-            fun caller() { f(first = 1, second = 2, {}) }
-        """).size)
+    @Test fun `lambdas inside parentheses count even when named`() {
+        val findings = lint("""
+            fun process(first: Int, second: Int, action: () -> Unit) = Unit
+            fun caller() {
+                process(1, 2, {})
+                process(1, second = 2, action = {})
+                process(first = 1, second = 2, {})
+                process(first = 1, second = 2, action = {})
+            }
+        """)
+        assertEquals(3, findings.size)
+        assertTrue(findings[0].message.contains("for: first, second, action."))
+        assertTrue(findings[1].message.contains("for: first."))
+        assertTrue(findings[2].message.contains("for: action."))
+    }
+
+    @Test fun `three supplied parameters still require names with a trailing lambda`() {
+        val findings = lint("""
+            fun process(first: Int, second: Int, third: Int, action: () -> Unit) = Unit
+            fun caller() {
+                process(1, 2, 3) { }
+                process(first = 1, second = 2, third = 3) { }
+            }
+        """)
+        assertEquals(1, findings.size)
+        assertTrue(findings.single().message.contains("for: first, second, third."))
+        assertTrue(findings.single().message.contains("supplies 3 parameters"))
     }
 
     @Test fun `multiple vararg elements do not count as multiple supplied parameters`() {

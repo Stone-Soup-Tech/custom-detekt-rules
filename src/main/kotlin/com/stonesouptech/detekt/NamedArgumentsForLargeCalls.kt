@@ -8,7 +8,7 @@ import org.jetbrains.kotlin.resolve.BindingContext
 @RequiresTypeResolution
 class NamedArgumentsForLargeCalls(config: Config = Config.empty) : ConventionRule(
     config, "NamedArgumentsForLargeCalls",
-    "Use named arguments when explicitly supplying at least three parameters to a callee with at least three parameters."
+    "Use named arguments when explicitly supplying at least three parameters inside parentheses."
 ) {
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -38,8 +38,10 @@ class NamedArgumentsForLargeCalls(config: Config = Config.empty) : ConventionRul
         val descriptor = resolved.resultingDescriptor
         if (descriptor.valueParameters.size < 3 || !descriptor.hasStableParameterNames()) return
 
-        // Defaulted parameters do not count; multiple vararg elements supply only one parameter.
-        val supplied = resolved.valueArguments.filterValues { it.arguments.isNotEmpty() }
+        // Defaults and trailing lambdas do not count; vararg elements supply one parameter.
+        val supplied = resolved.valueArguments.filter { (_, value) ->
+            value.arguments.any { it.asElement() !is KtLambdaArgument }
+        }
         if (supplied.size < 3) return
         val unnamed = supplied.flatMap { (parameter, value) ->
             value.arguments.filter { argument ->
